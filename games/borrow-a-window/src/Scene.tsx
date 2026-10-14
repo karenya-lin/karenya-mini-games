@@ -2,13 +2,14 @@ import { useRef, type MutableRefObject } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import * as L from './logic';
+import { useArt, ArtPlane } from './art';
 
 export interface Picker { pick(cx: number, cy: number): L.HotspotId | null; project(id: L.HotspotId): [number, number] | null }
 
 const skyDay = new THREE.Color('#9cc9e8'), skyDusk = new THREE.Color('#e9a77c');
 
 function Hotspot({ id, children, ringR, refs }: { id: L.HotspotId; children: React.ReactNode; ringR: number; refs: MutableRefObject<Record<string, THREE.Object3D>> }) {
-  const h = L.HOTSPOTS.find((x) => x.id === id)!;
+  const h = L.ALL_SPOTS.find((x) => x.id === id)!;
   return (
     <group position={h.pos} userData={{ hotspot: id }} ref={(o) => { if (o) refs.current[id] = o; }}>
       {children}
@@ -20,12 +21,14 @@ function Hotspot({ id, children, ringR, refs }: { id: L.HotspotId; children: Rea
   );
 }
 
-export function Scene({ model, pickerRef }: { model: L.Model; pickerRef: MutableRefObject<Picker | null> }) {
+export function Scene({ model, pickerRef, level }: { model: L.Model; pickerRef: MutableRefObject<Picker | null>; level: number }) {
   const { camera, scene, gl, raycaster } = useThree();
   const refs = useRef<Record<string, THREE.Object3D>>({});
   const sun = useRef<THREE.Mesh>(null!), blades = useRef<THREE.Group>(null!), cloud = useRef<THREE.Group>(null!);
   const lampMat = useRef<THREE.MeshStandardMaterial>(null!), leaf = useRef<THREE.Group>(null!);
   const bg = useRef(new THREE.Color());
+  const A = { sky: useArt('sky'), far: useArt('far'), mid: useArt('mid'), plant: useArt('plant'), lamp: useArt('lamp'), windmill: useArt('windmill'), roofcat: useArt('roofcat') };
+  const LV = L.levelOf(level);
   scene.background = bg.current;
 
   pickerRef.current = {
@@ -61,13 +64,14 @@ export function Scene({ model, pickerRef }: { model: L.Model; pickerRef: Mutable
     leaf.current.rotation.z = s.leaf;
     bg.current.copy(skyDusk).lerp(skyDay, s.sky);
     const act = L.activeAt(model, now);
-    for (const h of L.HOTSPOTS) {
+    for (const h of L.ALL_SPOTS) {
       const o = refs.current[h.id]; if (!o) continue;
       const k = act?.id === h.id ? 1 - (act.until - now) / 2000 : 0;
       o.scale.setScalar(act?.id === h.id ? 1 + 0.35 * Math.sin(Math.PI * k) : 1);
       const ring = o.getObjectByName(`ring-${h.id}`) as THREE.Mesh;
       ring.scale.setScalar(1 + 0.15 * Math.sin((2 * Math.PI * t) / 1.5));
       (ring.material as THREE.MeshBasicMaterial).color.set(model.found.has(h.id) ? '#7dff9a' : '#ffd84a');
+      ring.visible = LV.spots.includes(h.id) && (LV.rings || model.found.has(h.id));
     }
   });
 
@@ -87,14 +91,16 @@ export function Scene({ model, pickerRef }: { model: L.Model; pickerRef: Mutable
       {/* 近景：窗台與盆栽 */}
       <mesh position={[0, -1.05, -0.6]}><boxGeometry args={[3.4, 0.1, 1.2]} /><meshStandardMaterial color="#cbbfa8" /></mesh>
       <Hotspot id="plant" ringR={0.32} refs={refs}>
+        {A.plant ? <group ref={leaf} position={[0, 0.2, 0]}><ArtPlane tex={A.plant} w={0.6} /></group> : <>
         <mesh position={[0, 0, 0]}><cylinderGeometry args={[0.16, 0.12, 0.3, 16]} /><meshStandardMaterial color="#b4613a" /></mesh>
         <group ref={leaf} position={[0, 0.15, 0]}>
           <mesh position={[0, 0.2, 0]}><coneGeometry args={[0.18, 0.45, 8]} /><meshStandardMaterial color="#3f8f4a" /></mesh>
-        </group>
+        </group></>}
       </Hotspot>
       {/* 中景：地面、房子、路燈 */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -2.5, -12]}><planeGeometry args={[60, 16]} /><meshStandardMaterial color="#7a9a5a" /></mesh>
-      {[[-3.5, '#d9c7a1'], [-0.5, '#c98f7a'], [5, '#a8b8c8']].map(([x, c], i) => (
+      {A.mid && <group position={[0, -0.5, -9.9]}><ArtPlane tex={A.mid} w={16} /></group>}
+      {!A.mid && [[-3.5, '#d9c7a1'], [-0.5, '#c98f7a'], [5, '#a8b8c8']].map(([x, c], i) => (
         <group key={i} position={[x as number, -1.5, -10]}>
           <mesh><boxGeometry args={[2.2, 2, 2]} /><meshStandardMaterial color={c as string} /></mesh>
           <mesh position={[0, 1.4, 0]} rotation={[0, Math.PI / 4, 0]}><coneGeometry args={[1.7, 0.9, 4]} /><meshStandardMaterial color="#7a3b2e" /></mesh>
@@ -102,22 +108,34 @@ export function Scene({ model, pickerRef }: { model: L.Model; pickerRef: Mutable
       ))}
       <mesh position={[2.6, -1.05, -8]}><cylinderGeometry args={[0.05, 0.05, 2.9, 8]} /><meshStandardMaterial color="#333" /></mesh>
       <Hotspot id="lamp" ringR={0.5} refs={refs}>
-        <mesh><sphereGeometry args={[0.25, 16, 16]} /><meshStandardMaterial ref={lampMat} color="#fff3b0" emissive="#ffcc33" /></mesh>
+        {A.lamp && <group position={[0, -1.2, 0.05]}><ArtPlane tex={A.lamp} w={1} h={3.4} /></group>}
+        <mesh visible={!A.lamp}><sphereGeometry args={[0.25, 16, 16]} /><meshStandardMaterial ref={lampMat} color="#fff3b0" emissive="#ffcc33" /></mesh>
+      </Hotspot>
+      <Hotspot id="roofcat" ringR={0.45} refs={refs}>
+        {A.roofcat ? <ArtPlane tex={A.roofcat} w={0.7} /> : <>
+          <mesh><sphereGeometry args={[0.2, 12, 12]} /><meshStandardMaterial color="#2f2b3a" /></mesh>
+          <mesh position={[0, 0.22, 0]}><sphereGeometry args={[0.13, 12, 12]} /><meshStandardMaterial color="#2f2b3a" /></mesh>
+          <mesh position={[-0.08, 0.36, 0]}><coneGeometry args={[0.05, 0.1, 4]} /><meshStandardMaterial color="#2f2b3a" /></mesh>
+          <mesh position={[0.08, 0.36, 0]}><coneGeometry args={[0.05, 0.1, 4]} /><meshStandardMaterial color="#2f2b3a" /></mesh>
+        </>}
       </Hotspot>
       {/* 中遠：雲 */}
       <group ref={cloud} position={[0, 4.5, -20]}>
         {[-1, 0, 1].map((k) => <mesh key={k} position={[k * 1.2, k === 0 ? 0.4 : 0, 0]}><sphereGeometry args={[1, 12, 12]} /><meshStandardMaterial color="#ffffff" /></mesh>)}
       </group>
       {/* 遠景：山、風車、太陽 */}
-      {[[-8, 6, '#5d7f95'], [1, 9, '#4f6f86'], [11, 7, '#6a8aa0']].map(([x, h, c], i) => (
+      {A.far && <group position={[0, 1.5, -32]}><ArtPlane tex={A.far} w={34} /></group>}
+      {!A.far && [[-8, 6, '#5d7f95'], [1, 9, '#4f6f86'], [11, 7, '#6a8aa0']].map(([x, h, c], i) => (
         <mesh key={i} position={[x as number, (h as number) / 2 - 2.5, -32]}><coneGeometry args={[8, h as number, 4]} /><meshStandardMaterial color={c as string} /></mesh>
       ))}
       <mesh position={[-7, 0.2, -30]}><cylinderGeometry args={[0.15, 0.3, 4, 8]} /><meshStandardMaterial color="#eee" /></mesh>
       <Hotspot id="windmill" ringR={2.4} refs={refs}>
         <group ref={blades}>
-          {[0, 1, 2, 3].map((k) => <mesh key={k} rotation={[0, 0, (k * Math.PI) / 2]} position={[0, 0, 0.2]}><boxGeometry args={[0.25, 3.6, 0.05]} /><meshStandardMaterial color="#fafafa" /></mesh>)}
+          {A.windmill && <ArtPlane tex={A.windmill} w={4} />}
+          {!A.windmill && [0, 1, 2, 3].map((k) => <mesh key={k} rotation={[0, 0, (k * Math.PI) / 2]} position={[0, 0, 0.2]}><boxGeometry args={[0.25, 3.6, 0.05]} /><meshStandardMaterial color="#fafafa" /></mesh>)}
         </group>
       </Hotspot>
+      {A.sky && <group position={[0, 4, -50]}><ArtPlane tex={A.sky} w={70} h={40} /></group>}
       <mesh ref={sun}><sphereGeometry args={[1.5, 16, 16]} /><meshBasicMaterial color="#fff1a8" /></mesh>
     </>
   );
