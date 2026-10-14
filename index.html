@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Karenya 小遊戲</title>
+<style>
+  :root { --bg: #f6efe4; --card: #fffaf2; --ink: #3b2f2a; --soft: #8a7464; --accent: #c8794a; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: system-ui, "Noto Sans CJK TC", "PingFang TC", sans-serif; line-height: 1.6; }
+  header { text-align: center; padding: 40px 16px 12px; }
+  h1 { margin: 0; font-size: clamp(26px, 6vw, 38px); letter-spacing: .05em; }
+  header p { margin: 6px 0 0; color: var(--soft); }
+  main { max-width: 900px; margin: 0 auto; padding: 16px; display: grid; gap: 18px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+  .card { background: var(--card); border-radius: 18px; padding: 22px 20px; box-shadow: 0 4px 14px #5a3e2b1f; display: flex; flex-direction: column; gap: 10px; border: 1px solid #ead9c4; }
+  .emoji { font-size: 40px; line-height: 1; }
+  .card h2 { margin: 0; font-size: 22px; }
+  .card p { margin: 0; color: var(--soft); flex: 1; }
+  .tag { align-self: flex-start; font-size: 12px; background: #efe1cf; color: #7a5a44; padding: 2px 10px; border-radius: 999px; }
+  .play { display: block; text-align: center; background: var(--accent); color: #fff; text-decoration: none; font-weight: bold; padding: 12px; border-radius: 12px; min-height: 44px; }
+  .play:hover, .play:focus-visible { background: #a95f34; }
+  footer { text-align: center; color: var(--soft); font-size: 13px; padding: 24px 16px 40px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Karenya 小遊戲</h1>
+  <p>挑一款，泡杯茶，慢慢玩。</p>
+</header>
+<main id="games"></main>
+<footer>灰盒原型・美術尚未定案</footer>
+<script>
+  // 新增遊戲只要在這裡加一筆
+  const GAMES = [
+    { emoji: '🧳', title: '魔女的行李箱', desc: '把六件有脾氣的魔法物品塞進行李箱，看看會怎麼出發。', href: 'games/witch-suitcase/index.html', tag: '灰盒' },
+    { emoji: '🪟', title: '借一扇窗', desc: '透過一扇窗望出去，在三十秒的風景裡找找藏起來的小東西。', href: 'games/borrow-a-window/dist/index.html', tag: '灰盒・需先建置' },
+  ];
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+  document.getElementById('games').innerHTML = GAMES.map((g) => `
+    <article class="card">
+      <div class="emoji" aria-hidden="true">${esc(g.emoji)}</div>
+      <h2>${esc(g.title)}</h2>
+      <p>${esc(g.desc)}</p>
+      ${g.tag ? `<span class="tag">${esc(g.tag)}</span>` : ''}
+      <a class="play" href="${esc(g.href)}">開始玩 →</a>
+    </article>`).join('');
+</script>
+</body>
+</html>
