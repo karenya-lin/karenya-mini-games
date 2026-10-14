@@ -1,101 +1,99 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { corners, penetration, overlaps, outside } from '../src/geometry.js';
-import { createState, reset, tryPlace, rotate, evaluate, CONFIG_SMOOTH, CONFIG_CHAOS, SUITCASE, ITEMS } from '../src/game.js';
+import { corners, overlaps, outside } from '../src/geometry.js';
+import { createState, reset, tryPlace, rotate, evaluate, preview, occupiedCells, cellLabel, CHAPTERS, ITEMS, RULES_DB, SPEC_CHAPTER, chapter, validate } from '../src/game.js';
 
 const R = (x, y, w, h, angle = 0) => corners({ x, y, w, h, angle });
-const apply = (s, cfg, order = ['broom', 'cloak', 'book', 'potion', 'cat', 'crystal']) => {
-  for (const id of order) { const [x, y, a] = cfg[id]; const r = tryPlace(s, id, x, y, a); assert.ok(r.ok, `${id}: ${r.reason}`); }
-};
+const BOX = { x: 0, y: 0, w: 600, h: 400 };
+const ORDER = (cfg) => Object.keys(cfg);
+const apply = (s, cfg) => { for (const id of ORDER(cfg)) { const r = tryPlace(s, id, ...cfg[id]); assert.ok(r.ok, `${id}: ${r.reason}`); } };
 
-test('恰好六件物品', () => { assert.equal(createState().items.length, 6); assert.equal(new Set(ITEMS.map((i) => i.id)).size, 6); });
+test('物品 ≥20 件、id 不重複、每章物品都存在', () => {
+  assert.ok(ITEMS.length >= 20); assert.equal(new Set(ITEMS.map((i) => i.id)).size, ITEMS.length);
+  for (const c of CHAPTERS) for (const id of c.items) assert.ok(ITEMS.find((i) => i.id === id), id);
+});
+test('特別篇＝規格基準：恰好六件、三條規則、兩個結局', () => {
+  const c = chapter(SPEC_CHAPTER); assert.equal(c.items.length, 6); assert.equal(c.rules.length, 3);
+  assert.deepEqual(Object.keys(c.configs).sort(), ['boom', 'smooth']);
+});
+test('難度曲線：第 1–5 章物品數遞增、規則數不減', () => {
+  for (let i = 1; i < 5; i++) { assert.ok(CHAPTERS[i].items.length > CHAPTERS[i - 1].items.length); assert.ok(CHAPTERS[i].rules.length >= CHAPTERS[i - 1].rules.length); }
+});
+test('每章初始：桌面上互不重疊、都在桌面內', () => {
+  for (const c of CHAPTERS) { const s = createState(c.n); for (const it of s.items) assert.equal(validate(s, it), null, `${c.n}/${it.id}`); }
+});
 
 test('重疊：未旋轉 重疊／分離／邊緣接觸', () => {
   assert.ok(overlaps(R(0, 0, 100, 100), R(50, 0, 100, 100)));
   assert.ok(!overlaps(R(0, 0, 100, 100), R(150, 0, 100, 100)));
-  assert.ok(!overlaps(R(0, 0, 100, 100), R(100, 0, 100, 100)), '邊緣剛好接觸合法');
-  assert.ok(!overlaps(R(0, 0, 100, 100), R(99.6, 0, 100, 100)), '穿透 0.4 在容差內');
-  assert.ok(overlaps(R(0, 0, 100, 100), R(99, 0, 100, 100)), '穿透 1 超過容差');
+  assert.ok(!overlaps(R(0, 0, 100, 100), R(100, 0, 100, 100)));
+  assert.ok(!overlaps(R(0, 0, 100, 100), R(99.6, 0, 100, 100)));
+  assert.ok(overlaps(R(0, 0, 100, 100), R(99, 0, 100, 100)));
 });
-
-test('重疊：旋轉後（外框重疊但實際不重疊 → 合法）', () => {
-  // 45° 菱形，外框 141 寬；AABB 會重疊但幾何不重疊
-  const d = R(0, 0, 100, 100, 45), sq = R(115, 115, 100, 100);
-  assert.ok(!overlaps(d, sq));
-  // 旋轉後真的重疊
+test('重疊：旋轉後', () => {
+  assert.ok(!overlaps(R(0, 0, 100, 100, 45), R(115, 115, 100, 100)));
   assert.ok(overlaps(R(0, 0, 100, 100, 45), R(110, 0, 100, 100)));
-  // 旋轉後頂點剛好接觸邊（0.5 容差）
   assert.ok(!overlaps(R(0, 0, 100, 100, 45), R(50 * Math.SQRT2 + 50, 0, 100, 100)));
 });
-
-test('越界：四邊、角落、中心在箱內但旋轉角越界', () => {
-  assert.deepEqual(outside(R(20, 200, 60, 60), SUITCASE), ['左']);
-  assert.deepEqual(outside(R(590, 200, 60, 60), SUITCASE), ['右']);
-  assert.deepEqual(outside(R(300, 10, 60, 60), SUITCASE), ['上']);
-  assert.deepEqual(outside(R(300, 390, 60, 60), SUITCASE), ['下']);
-  assert.deepEqual(outside(R(10, 10, 60, 60), SUITCASE), ['左', '上']);
-  assert.deepEqual(outside(R(50, 200, 100, 100), SUITCASE), []);
-  assert.deepEqual(outside(R(50, 200, 100, 100, 45), SUITCASE), ['左'], '旋轉後角越界');
+test('越界：四邊、角落、旋轉角越界', () => {
+  assert.deepEqual(outside(R(20, 200, 60, 60), BOX), ['左']); assert.deepEqual(outside(R(590, 200, 60, 60), BOX), ['右']);
+  assert.deepEqual(outside(R(300, 10, 60, 60), BOX), ['上']); assert.deepEqual(outside(R(300, 390, 60, 60), BOX), ['下']);
+  assert.deepEqual(outside(R(10, 10, 60, 60), BOX), ['左', '上']);
+  assert.deepEqual(outside(R(50, 200, 100, 100), BOX), []); assert.deepEqual(outside(R(50, 200, 100, 100, 45), BOX), ['左']);
 });
 
-test('非法放置退回上個合法位置並給原因', () => {
-  const s = createState();
+test('非法放置退回＋原因；旋轉後重新驗證', () => {
+  const s = createState(SPEC_CHAPTER);
   assert.ok(tryPlace(s, 'cat', 300, 200, 0).ok);
-  const r = tryPlace(s, 'potion', 310, 200, 0);
-  assert.equal(r.ok, false); assert.match(r.reason, /重疊/);
-  const p = s.items.find((i) => i.id === 'potion'); assert.deepEqual([p.x, p.y], [800, 110]);
-  const r2 = tryPlace(s, 'cloak', 595, 300, 0); assert.equal(r2.ok, false); assert.match(r2.reason, /跨在|超出/);
+  const home = s.items.find((i) => i.id === 'book'); const h = [home.x, home.y];
+  const r = tryPlace(s, 'book', 310, 200, 0); assert.equal(r.ok, false); assert.match(r.reason, /重疊/); assert.deepEqual([home.x, home.y], h);
+  assert.ok(tryPlace(s, 'broom', 150, 20, 0).ok); const r2 = rotate(s, 'broom', 1); assert.equal(r2.ok, false); assert.match(r2.reason, /超出/);
 });
-
-test('旋轉後重新驗證：箱內靠牆的掃帚旋轉 45° 會越界被退回', () => {
-  const s = createState();
-  assert.ok(tryPlace(s, 'broom', 150, 20, 0).ok);
-  const r = rotate(s, 'broom', 1); assert.equal(r.ok, false); assert.match(r.reason, /超出/);
-  assert.equal(s.items.find((i) => i.id === 'broom').angle, 0);
-});
-
-test('吸附：格線 5 與離牆 15 內貼齊，吸附後仍驗證', () => {
-  const s = createState();
-  assert.ok(tryPlace(s, 'cat', 62.3, 211.8, 0).ok);
+test('吸附：格線 5、離牆 15 內貼齊', () => {
+  const s = createState(SPEC_CHAPTER); assert.ok(tryPlace(s, 'cat', 62.3, 211.8, 0).ok);
   const c = s.items.find((i) => i.id === 'cat'); assert.deepEqual([c.x, c.y], [50, 210]);
-  // 吸到牆後與已在牆邊的物品重疊 → 非法
-  assert.ok(tryPlace(s, 'crystal', 47, 330, 0).ok);
-  const cr = s.items.find((i) => i.id === 'crystal'); assert.equal(cr.x, 45);
+});
+test('影子預覽不改狀態，回報吸附位置與合法性', () => {
+  const s = createState(SPEC_CHAPTER); tryPlace(s, 'cat', 300, 200, 0); const before = JSON.stringify(s);
+  const ok = preview(s, 'crystal', 452, 201, 0); assert.equal(ok.ok, true); assert.deepEqual([ok.x, ok.y], [450, 200]);
+  const bad = preview(s, 'crystal', 310, 200, 0); assert.equal(bad.ok, false); assert.match(bad.reason, /重疊/);
+  assert.equal(JSON.stringify(s), before);
+});
+test('格線：佔用格依實際形狀計算', () => {
+  const s = createState(SPEC_CHAPTER); tryPlace(s, 'cat', 50, 50, 0); // 0–100 → 5×5 格
+  const cells = occupiedCells(s); assert.equal(cells.size, 25); assert.ok(cells.has('0,0') && cells.has('4,4') && !cells.has('5,0'));
+  assert.equal(cellLabel(0, 0), 'A1'); assert.equal(cellLabel(2, 9), 'C10'); assert.equal(cellLabel(27, 0), 'AB1');
 });
 
-test('三條規則 觸發／解除', () => {
-  const s = createState();
-  apply(s, CONFIG_SMOOTH);
+for (const c of CHAPTERS) {
+  test(`第 ${c.n} 章（${c.client}）順利出發 可從 reset 達成`, () => { const s = createState(c.n); apply(s, c.configs.smooth); assert.equal(s.ending, 'smooth'); });
+  if (c.configs.boom) test(`第 ${c.n} 章 爆炸 可達，爆炸後鎖住操作直到 reset`, () => {
+    const s = createState(c.n); const ids = ORDER(c.configs.boom);
+    for (const id of ids.slice(0, -1)) assert.ok(tryPlace(s, id, ...c.configs.boom[id]).ok);
+    const last = ids.at(-1); tryPlace(s, last, ...c.configs.boom[last]);
+    assert.equal(s.ending, 'boom'); assert.equal(s.exploded, true);
+    assert.equal(tryPlace(s, ids[0], 10, 10, 0).ok, false);
+    reset(s); assert.equal(s.exploded, false); assert.equal(s.ending, null);
+  });
+}
+test('bad 規則擋住過關、good 規則缺少不能過關', () => {
+  const c = chapter(1); const s = createState(1); apply(s, c.configs.smooth); assert.equal(s.ending, 'smooth');
+  assert.ok(tryPlace(s, 'heels', 220, 30, 0).ok); assert.equal(s.rules.heelsHot, true); assert.equal(s.ending, null);
+  const s2 = createState(2); apply(s2, chapter(2).configs.smooth); assert.ok(tryPlace(s2, 'thermos', 300, 200, 0).ok); assert.equal(s2.rules.warm, false); assert.equal(s2.ending, null);
+});
+test('規格三條規則 觸發／解除（特別篇）', () => {
+  const s = createState(SPEC_CHAPTER); apply(s, chapter(SPEC_CHAPTER).configs.smooth);
   assert.deepEqual(s.rules, { fragile: false, calm: true, messy: false });
-  assert.ok(tryPlace(s, 'crystal', 450, 300, 0).ok); assert.equal(s.rules.calm, false, '②解除');
+  assert.ok(tryPlace(s, 'crystal', 450, 300, 0).ok); assert.equal(s.rules.calm, false);
   assert.ok(tryPlace(s, 'crystal', 355, 300, 0).ok); assert.equal(s.rules.calm, true);
-  assert.ok(tryPlace(s, 'book', 70, 100, 180).ok); assert.equal(s.rules.messy, false, '180° 仍整齊');
-  assert.ok(tryPlace(s, 'book', 450, 200, 90).ok); assert.equal(s.rules.messy, true, '90° 觸發③'); assert.equal(s.ending, null, '③成立不能順利出發');
+  assert.ok(tryPlace(s, 'book', 450, 200, 90).ok); assert.equal(s.rules.messy, true); assert.equal(s.ending, null);
 });
-
-test('③ 整齊：書轉 45° 觸發、轉回解除', () => {
-  const s = createState();
-  assert.ok(tryPlace(s, 'book', 300, 200, 0).ok);
-  assert.ok(rotate(s, 'book', 1).ok); assert.equal(s.rules.messy, true);
-  assert.ok(rotate(s, 'book', -1).ok); assert.equal(s.rules.messy, false);
-});
-
-test('結局一 順利出發 可從 reset 達成', () => {
-  const s = createState(); apply(s, CONFIG_SMOOTH); assert.equal(s.ending, 'smooth');
-});
-test('結局二 行李箱暴走 可從 reset 達成，且優先於順利出發', () => {
-  const s = createState(); apply(s, CONFIG_CHAOS);
-  assert.equal(s.rules.fragile, true); assert.equal(s.rules.calm, true); assert.equal(s.ending, 'chaos');
-  assert.ok(tryPlace(s, 'potion', 570, 350, 0).ok); assert.equal(s.ending, 'smooth', '①解除後回到順利出發');
-});
-test('不在箱內不判定結局與規則', () => {
-  const s = createState(); evaluate(s); assert.equal(s.ending, null); assert.deepEqual(s.rules, { fragile: false, calm: false, messy: false });
-});
-test('三輪 reset：結局後、操作中都完全還原', () => {
-  const s = createState(); const fresh = JSON.stringify(createState());
-  for (let i = 0; i < 3; i++) {
-    apply(s, i % 2 ? CONFIG_CHAOS : CONFIG_SMOOTH); assert.ok(s.ending);
-    s.selected = 'cat'; reset(s); assert.equal(JSON.stringify(s), fresh);
-    tryPlace(s, 'cat', 300, 200, 0); reset(s); assert.equal(JSON.stringify(s), fresh);
+test('三輪 reset：結局後、爆炸後、操作中都完全還原', () => {
+  for (const c of CHAPTERS) {
+    const s = createState(c.n), fresh = JSON.stringify(createState(c.n));
+    apply(s, c.configs.smooth); reset(s); assert.equal(JSON.stringify(s), fresh);
+    s.selected = s.items[0].id; reset(s); assert.equal(JSON.stringify(s), fresh);
+    if (c.configs.boom) { for (const id of ORDER(c.configs.boom)) tryPlace(s, id, ...c.configs.boom[id]); assert.ok(s.exploded); reset(s); assert.equal(JSON.stringify(s), fresh); }
   }
 });
+test('可換章', () => { const s = createState(1); reset(s, 5); assert.equal(s.chapter, 5); assert.equal(s.items.length, 8); });
