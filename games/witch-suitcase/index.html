@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>魔女的行李箱（灰盒）</title>
+<style>
+  body { margin: 0; font-family: system-ui, "Noto Sans CJK TC", sans-serif; background: #f1ede6; color: #222; }
+  header { padding: 8px 12px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  h1 { font-size: 18px; margin: 0 12px 0 0; }
+  button { font-size: 16px; padding: 8px 14px; min-height: 44px; border-radius: 8px; border: 1px solid #555; background: #fff; }
+  #wrap { padding: 0 12px; }
+  canvas { width: 100%; max-width: 1000px; touch-action: none; background: #fff; border: 1px solid #999; display: block; }
+  #msg { margin: 8px 12px; min-height: 1.5em; font-weight: bold; }
+  #panels { display: flex; flex-wrap: wrap; gap: 12px; padding: 0 12px 16px; }
+  .panel { background: #fff; border: 1px solid #ccc; border-radius: 8px; padding: 8px 12px; flex: 1 1 280px; }
+  .rule.on { background: #ffe9a8; }
+  .rule { padding: 4px; border-radius: 4px; }
+  #ending { font-size: 20px; }
+  #ending.chaos { color: #b00020; } #ending.smooth { color: #0a7d2c; }
+</style>
+</head>
+<body>
+<header>
+  <h1>魔女的行李箱 <small>灰盒</small></h1>
+  <button id="rotL" aria-label="逆時針旋轉">⟲ 45°</button>
+  <button id="rotR" aria-label="順時針旋轉">⟳ 45°</button>
+  <button id="reset">重來 reset</button>
+</header>
+<div id="wrap"><canvas id="c" width="1000" height="400"></canvas></div>
+<div id="msg" role="status"></div>
+<div id="panels">
+  <div class="panel"><b>規則面板</b><div id="rules"></div></div>
+  <div class="panel"><b>結局</b><div id="ending">尚未達成</div><div id="endingList"></div>
+    <small>操作：拖曳移動；點選後用 ⟲／⟳ 或 R（Shift+R 逆轉）旋轉；放開時吸附並檢查。</small></div>
+</div>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
