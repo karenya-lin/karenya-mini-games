@@ -94,3 +94,10 @@ describe('關卡', () => {
     expect(L.lampLit(7.4)).toBe(false); expect(L.lampLit(7.6)).toBe(true); expect(L.lampLit(22.6)).toBe(false);
   });
 });
+
+describe('星等', () => {
+  it('依時間給星與差一點提示', () => {
+    expect(L.windowStars(9, 1)).toBe(3); expect(L.windowStars(20, 1)).toBe(2); expect(L.windowStars(99, 1)).toBe(1);
+    expect(L.windowSoClose(13, 1)).toBe(3); expect(L.windowSoClose(9, 1)).toBeNull(); expect(L.windowSoClose(30, 1)).toBeNull();
+  });
+});

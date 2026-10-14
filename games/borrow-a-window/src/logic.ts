@@ -107,3 +107,8 @@ export function tryActivate(m: Model, level: number, id: HotspotId, now: number)
   activate(m, id, now); return 'ok';
 }
 export const cleared = (m: Model, level: number) => levelOf(level).spots.every((id) => m.found.has(id));
+
+// ---- 輕量上癮機制：依過關時間給 1–3 星 ----
+export const starTimes = (nSpots: number) => ({ t3: 10 * nSpots, t2: 25 * nSpots });
+export function windowStars(secs: number, nSpots: number) { const t = starTimes(nSpots); return secs <= t.t3 ? 3 : secs <= t.t2 ? 2 : 1; }
+export function windowSoClose(secs: number, nSpots: number) { const t = starTimes(nSpots); return secs > t.t3 && secs - t.t3 <= 5 ? Math.ceil(secs - t.t3) : null; }
