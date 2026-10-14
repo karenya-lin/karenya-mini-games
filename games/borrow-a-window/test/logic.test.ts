@@ -72,3 +72,25 @@ describe('FOV', () => {
     expect(L.fovFor(1.6)).toBe(50); expect(L.fovFor(0.46)).toBeGreaterThan(80); expect(L.fovFor(0.2)).toBe(100);
   });
 });
+
+describe('關卡', () => {
+  it('難度遞增：探索點不減、提示漸少、條件漸嚴', () => {
+    for (let i = 1; i < L.LEVELS.length; i++) {
+      const a = L.LEVELS[i - 1], b = L.LEVELS[i];
+      expect(b.spots.length).toBeGreaterThanOrEqual(a.spots.length);
+      expect(Number(!b.rings) + Number(b.lampNightOnly) + b.spots.length).toBeGreaterThan(Number(!a.rings) + Number(a.lampNightOnly) + a.spots.length);
+    }
+  });
+  it('第 1 關只有路燈；點別的不算', () => {
+    const m = L.createModel(0);
+    expect(L.tryActivate(m, 1, 'plant', 100)).toBe('not-in-level'); expect(L.tryActivate(m, 1, 'lamp', 100)).toBe('ok'); expect(L.cleared(m, 1)).toBe(true);
+  });
+  it('第 4 關路燈要等天黑', () => {
+    const m = L.createModel(0);
+    expect(L.tryActivate(m, 4, 'lamp', 2000)).toBe('wait-night'); expect(m.found.has('lamp')).toBe(false);
+    expect(L.tryActivate(m, 4, 'lamp', 15000)).toBe('ok');
+    for (const id of ['plant', 'windmill', 'roofcat'] as const) L.tryActivate(m, 4, id, 16000);
+    expect(L.cleared(m, 4)).toBe(true);
+    expect(L.lampLit(7.4)).toBe(false); expect(L.lampLit(7.6)).toBe(true); expect(L.lampLit(22.6)).toBe(false);
+  });
+});
