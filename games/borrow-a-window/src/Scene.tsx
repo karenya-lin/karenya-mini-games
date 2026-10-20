@@ -128,10 +128,10 @@ export function Scene({ model, pickerRef, level }: { model: L.Model; pickerRef: 
       {!A.far && [[-8, 6, '#5d7f95'], [1, 9, '#4f6f86'], [11, 7, '#6a8aa0']].map(([x, h, c], i) => (
         <mesh key={i} position={[x as number, (h as number) / 2 - 2.5, -32]}><coneGeometry args={[8, h as number, 4]} /><meshStandardMaterial color={c as string} /></mesh>
       ))}
-      <mesh position={[-7, 0.2, -30]}><cylinderGeometry args={[0.15, 0.3, 4, 8]} /><meshStandardMaterial color="#eee" /></mesh>
+      {!A.windmill && <mesh position={[-7, 0.2, -30]}><cylinderGeometry args={[0.15, 0.3, 4, 8]} /><meshStandardMaterial color="#eee" /></mesh>}
       <Hotspot id="windmill" ringR={2.4} refs={refs}>
+        {A.windmill && <group position={[0, -0.6, 0]}><ArtPlane tex={A.windmill} w={4.4} /></group>}
         <group ref={blades}>
-          {A.windmill && <ArtPlane tex={A.windmill} w={4} />}
           {!A.windmill && [0, 1, 2, 3].map((k) => <mesh key={k} rotation={[0, 0, (k * Math.PI) / 2]} position={[0, 0, 0.2]}><boxGeometry args={[0.25, 3.6, 0.05]} /><meshStandardMaterial color="#fafafa" /></mesh>)}
         </group>
       </Hotspot>
