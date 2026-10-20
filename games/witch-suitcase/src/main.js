@@ -149,14 +149,14 @@ function draw(now = performance.now()) {
   ctx.fillStyle = '#d9c8f0'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   for (let cx = 0; cx * CELL < B.w; cx++) ctx.fillText(colName(cx), cx * CELL + CELL / 2, -12);
   for (let cy = 0; cy * CELL < B.h; cy++) ctx.fillText(String(cy + 1), -13, cy * CELL + CELL / 2);
-  if (state.layout === 'portrait') ctx.drawImage(art('bg'), T.x, T.y - 20, T.w, T.h + 20); else ctx.drawImage(art('bg'), T.x - 40, 0, T.w + 40, T.h);
+  { const [bx, by, bw, bh] = state.layout === 'portrait' ? [T.x, T.y - 20, T.w, T.h + 20] : [T.x - 40, 0, T.w + 40, T.h]; ctx.drawImage(art('bg'), bx, by, bw, bh); ctx.fillStyle = 'rgba(20,14,36,.45)'; ctx.fillRect(bx, by, bw, bh); } // 背景壓暗，物品才跳出來
   ctx.drawImage(art('suitcase'), B.x, B.y, B.w, B.h);
   // 格線＋佔用格
   const occ = occupiedCells(state);
   ctx.fillStyle = 'rgba(224,138,82,.28)';
   for (const k of occ) { const [cx, cy] = k.split(',').map(Number); ctx.fillRect(cx * CELL, cy * CELL, CELL, CELL); }
   for (const b of state.blocks) { ctx.fillStyle = 'rgba(70,40,90,.55)'; ctx.beginPath(); ctx.roundRect(b.x + 2, b.y + 2, b.w - 4, b.h - 4, 10); ctx.fill(); ctx.font = '20px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('🫧', b.x + b.w / 2, b.y + b.h / 2); }
-  ctx.strokeStyle = 'rgba(94,50,24,.35)'; ctx.lineWidth = 1; ctx.beginPath();
+  ctx.strokeStyle = HAS_PNG.has('suitcase') ? 'rgba(255,225,190,.22)' : 'rgba(94,50,24,.35)'; ctx.lineWidth = 1; ctx.beginPath();
   for (let x = 0; x <= B.w; x += CELL) { ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, B.h); }
   for (let y = 0; y <= B.h; y += CELL) { ctx.moveTo(0, y + 0.5); ctx.lineTo(B.w, y + 0.5); }
   ctx.stroke();
@@ -211,7 +211,7 @@ function startBoom() {
 function openBook() {
   const dlg = document.getElementById('book');
   dlg.querySelector('.grid').innerHTML = ITEMS.map((it) => SAVE.collection.includes(it.id)
-    ? `<div class="entry"><div class="sw" style="background:${it.color};aspect-ratio:${it.w}/${it.h}"></div><b>${it.name}</b><small>${it.mood}・${it.w / CELL}×${it.h / CELL} 格</small></div>`
+    ? `<div class="entry">${HAS_PNG.has(it.id) ? `<img class="sw" src="assets/${it.id}.png" alt="" style="object-fit:contain;aspect-ratio:${it.w}/${it.h}">` : `<div class="sw" style="background:${it.color};aspect-ratio:${it.w}/${it.h}"></div>`}<b>${it.name}</b><small>${it.mood}・${it.w / CELL}×${it.h / CELL} 格</small></div>`
     : `<div class="entry locked"><div class="sw"></div><b>？？？</b><small>過關後收錄</small></div>`).join('');
   dlg.querySelector('.count').textContent = `${SAVE.collection.length}/${ITEMS.length}`;
   dlg.showModal();

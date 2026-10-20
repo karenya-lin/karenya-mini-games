@@ -36,10 +36,10 @@
   .panel { background: #fff8ec; border: 1px solid #ccc; border-radius: 8px; padding: 8px 12px; flex: 1 1 280px; }
   .rule.on { background: #ffe9a8; }
   canvas#c { cursor: grab; } canvas#c.grabbing { cursor: grabbing; }
-  .hand-art canvas#c, .hand-art canvas#c.over-item { cursor: url(assets/cursor-open.png) 16 16, grab; }
-  .hand-art canvas#c.grabbing { cursor: url(assets/cursor-grab.png) 16 16, grabbing; }
+  .hand-art canvas#c, .hand-art canvas#c.over-item { cursor: url(assets/cursor-open.png) 24 24, grab; }
+  .hand-art canvas#c.grabbing { cursor: url(assets/cursor-grab.png) 24 24, grabbing; }
   #coach { margin: 6px 12px; background: #f6d55c; color: #3b2f2a; border-radius: 12px; padding: 10px 14px; font-weight: bold; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-  #coach button { min-height: 36px; padding: 4px 10px; font-size: 14px; }
+  #coach[hidden] { display: none; } #coach button { min-height: 36px; padding: 4px 10px; font-size: 14px; }
   #hint { background: #e8f7d8; }
   @media (max-width: 700px) { body { display: flex; flex-direction: column; } header { order: 0; padding: 4px 8px; gap: 4px; } h1 { font-size: 15px; width: 100%; } #hud { order: 1; font-size: 12px; } #coach { order: 2; } #result { order: 3; } #wrap { order: 4; padding: 0 4px; } #msg { order: 5; } #levels { order: 6; } #panels { order: 7; } h1 small { display: none; } header button { padding: 6px 10px; } #levels button { font-size: 13px; padding: 2px 8px; } .lvinfo { width: 100%; } }
   .rule { padding: 4px; border-radius: 4px; }
@@ -50,7 +50,7 @@
 </head>
 <body>
 <header>
-  <h1>魔女的行李箱 <small>灰盒</small></h1>
+  <h1>魔女的行李箱</h1>
   <button id="rotL" aria-label="逆時針旋轉">⟲ 45°</button>
   <button id="rotR" aria-label="順時針旋轉">⟳ 45°</button>
   <button id="reset">重來 reset</button>
