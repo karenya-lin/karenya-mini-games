@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import * as THREE from 'three';
+import { AVAILABLE } from './artManifest';
 
 // 美術載入：優先讀 public/art/<key>.png（建置後在 dist/art/），缺檔時回傳 null，場景改用幾何暫用圖。
 export const ART_KEYS = ['sky', 'far', 'mid', 'plant', 'lamp', 'windmill', 'roofcat'] as const;
@@ -11,6 +12,7 @@ export function useArt(key: ArtKey): THREE.Texture | null {
   const [tex, setTex] = useState<THREE.Texture | null>(null);
   useEffect(() => {
     let alive = true;
+    if (!AVAILABLE.includes(key)) { artSource[key] = 'fallback'; return; }
     loader.load(`art/${key}.png`,
       (t) => { t.colorSpace = THREE.SRGBColorSpace; artSource[key] = 'png'; if (alive) setTex(t); },
       undefined,

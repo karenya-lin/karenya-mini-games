@@ -78,7 +78,7 @@ describe('關卡', () => {
     for (let i = 1; i < L.LEVELS.length; i++) {
       const a = L.LEVELS[i - 1], b = L.LEVELS[i];
       expect(b.spots.length).toBeGreaterThanOrEqual(a.spots.length);
-      expect(Number(!b.rings) + Number(b.lampNightOnly) + b.spots.length).toBeGreaterThan(Number(!a.rings) + Number(a.lampNightOnly) + a.spots.length);
+      expect(Number(!b.rings) + Number(b.lampNightOnly) + Number(!!b.oneLoop) + b.spots.length).toBeGreaterThan(Number(!a.rings) + Number(a.lampNightOnly) + Number(!!a.oneLoop) + a.spots.length);
     }
   });
   it('第 1 關只有路燈；點別的不算', () => {
@@ -99,5 +99,20 @@ describe('星等', () => {
   it('依時間給星與差一點提示', () => {
     expect(L.windowStars(9, 1)).toBe(3); expect(L.windowStars(20, 1)).toBe(2); expect(L.windowStars(99, 1)).toBe(1);
     expect(L.windowSoClose(13, 1)).toBe(3); expect(L.windowSoClose(9, 1)).toBeNull(); expect(L.windowSoClose(30, 1)).toBeNull();
+  });
+});
+
+describe('引導與第 5 關', () => {
+  it('閒置 12 秒才給線索，且是下一個沒找到的點', () => {
+    const m = L.createModel(0);
+    expect(L.clueFor(m, 2, 5)).toBeNull();
+    L.activate(m, 'plant', 0);
+    expect(L.clueFor(m, 2, 12)).toBe(L.ALL_SPOTS.find((h) => h.id === 'lamp')!.clue);
+  });
+  it('第 5 關換輪清空、其他關不清空', () => {
+    for (const [lv, wipe] of [[5, true], [4, false]] as const) {
+      const m = L.createModel(0); L.checkLoop(m, lv, 0); L.activate(m, 'plant', 1000);
+      expect(L.checkLoop(m, lv, 31000)).toBe(wipe); expect(m.found.size).toBe(wipe ? 0 : 1);
+    }
   });
 });

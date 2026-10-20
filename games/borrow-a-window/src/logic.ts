@@ -8,11 +8,11 @@ export const TAP_SLOP_PX = 6;
 export const FEEDBACK_MS = 2000;
 
 export type HotspotId = 'plant' | 'lamp' | 'windmill' | 'roofcat';
-export interface Spot { id: HotspotId; layer: '近景' | '中景' | '遠景'; name: string; pos: [number, number, number]; text: string }
+export interface Spot { id: HotspotId; layer: '近景' | '中景' | '遠景'; name: string; pos: [number, number, number]; text: string; clue?: string }
 export const HOTSPOTS: Spot[] = [
-  { id: 'plant', layer: '近景', name: '窗台盆栽', pos: [-0.9, -0.75, -0.8], text: '盆栽的葉子抖了一下，好像在跟你打招呼。' },
-  { id: 'lamp', layer: '中景', name: '街角路燈', pos: [2.6, 0.4, -8], text: '路燈眨了兩下，替晚歸的人亮著。' },
-  { id: 'windmill', layer: '遠景', name: '山上的風車', pos: [-7, 2.2, -30], text: '風車轉了一圈，剛好三十秒。' },
+  { id: 'plant', layer: '近景', name: '窗台盆栽', pos: [-0.9, -0.75, -0.8], text: '盆栽的葉子抖了一下，好像在跟你打招呼。', clue: '窗台左下角，有片葉子在偷偷搖。' },
+  { id: 'lamp', layer: '中景', name: '街角路燈', pos: [2.6, 0.4, -8], text: '路燈眨了兩下，替晚歸的人亮著。', clue: '往右看，街角有個會發光的東西。' },
+  { id: 'windmill', layer: '遠景', name: '山上的風車', pos: [-7, 2.2, -30], text: '風車轉了一圈，剛好三十秒。', clue: '最遠的山上，有東西一直在轉。' },
 ];
 
 export const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
@@ -54,7 +54,7 @@ export interface Model {
 }
 export const createModel = (now: number): Model => ({ start: now, view: centerView(), found: new Set(), active: null, gesture: null, resets: 0 });
 export function reset(m: Model, now: number) {
-  m.start = now; m.view = centerView(); m.found = new Set(); m.active = null; m.gesture = null; m.resets++;
+  m.start = now; m.view = centerView(); m.found = new Set(); m.active = null; m.gesture = null; m.resets++; (m as { loopSeen?: number }).loopSeen = undefined;
 }
 export function pointerDown(m: Model, id: number, x: number, y: number) {
   if (m.gesture) return; // 只追蹤第一指
@@ -86,15 +86,16 @@ export const fovFor = (aspect: number) => {
 
 // ---- 難度曲線 ----
 export const EXTRA_SPOTS: Spot[] = [
-  { id: 'roofcat', layer: '中景', name: '屋頂上的貓', pos: [-3.5, 0.15, -9.6], text: '屋頂上的貓甩了甩尾巴，假裝沒看到你。' },
+  { id: 'roofcat', layer: '中景', name: '屋頂上的貓', pos: [-3.5, 0.15, -9.6], text: '屋頂上的貓甩了甩尾巴，假裝沒看到你。', clue: '左邊的屋頂上，好像有一雙眼睛。' },
 ];
 export const ALL_SPOTS: Spot[] = [...HOTSPOTS, ...EXTRA_SPOTS];
-export interface Level { n: number; name: string; spots: HotspotId[]; rings: boolean; lampNightOnly: boolean; desc: string }
+export interface Level { n: number; name: string; spots: HotspotId[]; rings: boolean; lampNightOnly: boolean; desc: string; oneLoop?: boolean }
 export const LEVELS: Level[] = [
   { n: 1, name: '第一眼', spots: ['lamp'], rings: true, lampNightOnly: false, desc: '1 個探索點，有黃色光圈提示。' },
   { n: 2, name: '近中遠', spots: ['plant', 'lamp', 'windmill'], rings: true, lampNightOnly: false, desc: '近／中／遠各 1 個，有光圈提示。' },
   { n: 3, name: '沒有提示', spots: ['plant', 'lamp', 'windmill', 'roofcat'], rings: false, lampNightOnly: false, desc: '4 個探索點，不再顯示光圈，只有文字線索。' },
   { n: 4, name: '等天黑', spots: ['plant', 'lamp', 'windmill', 'roofcat'], rings: false, lampNightOnly: true, desc: '4 個、無光圈；路燈只有亮著時（循環 7.5–22.5 秒）點才算。' },
+  { n: 5, name: '一輪之內', spots: ['plant', 'lamp', 'windmill', 'roofcat'], rings: false, lampNightOnly: true, oneLoop: true, desc: '同第 4 關，但要在同一輪 30 秒內全部找到，換輪就清空。' },
 ];
 export const levelOf = (n: number) => LEVELS.find((l) => l.n === n) ?? LEVELS[LEVELS.length - 1];
 export const spotsOf = (n: number) => ALL_SPOTS.filter((h) => levelOf(n).spots.includes(h.id));
@@ -112,3 +113,21 @@ export const cleared = (m: Model, level: number) => levelOf(level).spots.every((
 export const starTimes = (nSpots: number) => ({ t3: 10 * nSpots, t2: 25 * nSpots });
 export function windowStars(secs: number, nSpots: number) { const t = starTimes(nSpots); return secs <= t.t3 ? 3 : secs <= t.t2 ? 2 : 1; }
 export function windowSoClose(secs: number, nSpots: number) { const t = starTimes(nSpots); return secs > t.t3 && secs - t.t3 <= 5 ? Math.ceil(secs - t.t3) : null; }
+
+// ---- 引導與節奏 ----
+export const CLUE_AFTER_S = 12;
+/** 卡關太久（距上次發現 ≥12 秒）就給下一個沒找到的點的文字線索 */
+export function clueFor(m: Model, level: number, idleSecs: number): string | null {
+  if (idleSecs < CLUE_AFTER_S) return null;
+  const s = spotsOf(level).find((h) => !m.found.has(h.id));
+  return s?.clue ?? null;
+}
+/** 第 5 關：換輪就清空已發現；回傳是否清空 */
+export function checkLoop(m: Model & { loopSeen?: number }, level: number, now: number): boolean {
+  const i = loopIndex(now, m.start);
+  if (m.loopSeen === undefined) { m.loopSeen = i; return false; }
+  if (i === m.loopSeen) return false;
+  m.loopSeen = i;
+  if (!levelOf(level).oneLoop || cleared(m, level) || m.found.size === 0) return false;
+  m.found = new Set(); m.active = null; return true;
+}
