@@ -52,14 +52,14 @@
   <div class="title"><h1>Karenya 小遊戲</h1><p>夜深了，挑一款慢慢玩。</p></div>
 </header>
 <main id="games"></main>
-<footer>原型階段・美術陸續替換中</footer>
+<footer>原型階段・持續更新中</footer>
 <script>
   // 新增遊戲只要在這裡加一筆。preview＝縮圖用的即時預覽頁（加 ?preview 會自動示範、隱藏介面）
   // cover＝封面插畫（可選，檔案不存在就只顯示即時預覽）
   const GAMES = [
-    { id: 'witch-suitcase', title: '魔女的行李箱', desc: '把六件有脾氣的魔法物品塞進行李箱，看看會怎麼出發。',
+    { id: 'witch-suitcase', title: '魔女的行李箱', desc: '幫姐姐、媽媽、隔壁老王到小狗打包！36 件有脾氣的東西，放錯會爆炸。',
       href: 'games/witch-suitcase/index.html', preview: 'games/witch-suitcase/index.html?preview', size: [1066, 426], cover: 'covers/witch-suitcase.png' },
-    { id: 'borrow-a-window', title: '借一扇窗', desc: '透過一扇窗望出去，在三十秒的風景裡找找藏起來的小東西。',
+    { id: 'borrow-a-window', title: '借一扇窗', desc: '透過一扇窗望出去，在三十秒的風景裡找藏起來的小東西，五關越來越難。',
       href: 'games/borrow-a-window/dist/index.html', preview: 'games/borrow-a-window/dist/index.html?preview', size: [1280, 800], cover: 'covers/borrow-a-window.png' },
   ];
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
