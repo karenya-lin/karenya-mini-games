@@ -1,0 +1,9 @@
+{
+  "name": "witch-suitcase",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "npx --yes http-server@14 -p 5173 -c-1 .",
+    "test": "node --test test/game.test.js test/meta.test.js"
+  }
+}

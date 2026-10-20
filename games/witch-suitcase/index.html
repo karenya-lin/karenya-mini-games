@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>魔女的行李箱（灰盒）</title>
+<style>
+  body { margin: 0; font-family: system-ui, "Noto Sans CJK TC", sans-serif; background: radial-gradient(circle at 20% 0%, #4a3d6e, #2a2340 70%); color: #3b2f2a; min-height: 100vh; }
+  h1 { color: #f6e6a8; } h1 small { color: #cbb8e8; }
+  body.preview header, body.preview #msg, body.preview #panels { display: none; } body.preview #wrap { padding: 0; } body.preview canvas { border: 0; max-width: none; }
+  header { padding: 8px 12px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  h1 { font-size: 18px; margin: 0 12px 0 0; }
+  button { font-size: 16px; padding: 8px 14px; min-height: 44px; border-radius: 8px; border: 1px solid #555; background: #fff; }
+  #wrap { padding: 0 12px; }
+  #levels { padding: 0 12px 8px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  #levels button { min-height: 40px; padding: 4px 12px; font-size: 15px; background: #fff8ec; }
+  #levels button.cur { background: #e08a52; color: #fff; border-color: #a95f34; }
+  #levels button:disabled { opacity: .5; }
+  #levels .next { background: #f6d55c; font-weight: bold; }
+  #hud { color: #f6e6a8; padding: 0 12px 6px; font-size: 14px; } #hud b { color: #fff; }
+  #result { margin: 8px 12px; background: #fff8ec; border-radius: 12px; padding: 10px 14px; text-align: center; }
+  #result .stars { font-size: 36px; color: #e0a020; letter-spacing: 4px; } #result .close { color: #c0392b; font-weight: bold; }
+  #result button { margin-top: 6px; background: #f6d55c; font-weight: bold; }
+  #levels .daily { background: #d8ecff; }
+  dialog#book { max-width: 760px; width: 92vw; border: 0; border-radius: 16px; background: #fff8ec; }
+  dialog#book .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; max-height: 60vh; overflow: auto; }
+  .entry { background: #fff; border-radius: 10px; padding: 8px; text-align: center; display: grid; gap: 2px; font-size: 13px; }
+  .entry .sw { height: 50px; max-width: 100%; margin: 0 auto; border-radius: 8px; width: 80px; }
+  .entry.locked .sw { background: repeating-linear-gradient(45deg, #ddd, #ddd 6px, #eee 6px, #eee 12px); } .entry.locked { color: #999; }
+  body.preview #hud, body.preview #result { display: none !important; }
+  .lvinfo { color: #f6e6a8; font-size: 14px; }
+  body.preview #levels { display: none; }
+  canvas { width: 100%; max-width: 1000px; touch-action: none; background: #2a2340; border-radius: 14px; display: block; box-shadow: 0 8px 24px #0006; }
+  #msg { color: #f6e6a8; margin: 8px 12px; min-height: 1.5em; font-weight: bold; }
+  #panels { display: flex; flex-wrap: wrap; gap: 12px; padding: 0 12px 16px; }
+  .panel { background: #fff8ec; border: 1px solid #ccc; border-radius: 8px; padding: 8px 12px; flex: 1 1 280px; }
+  .rule.on { background: #ffe9a8; }
+  canvas#c { cursor: grab; } canvas#c.grabbing { cursor: grabbing; }
+  .hand-art canvas#c, .hand-art canvas#c.over-item { cursor: url(assets/cursor-open.png) 24 24, grab; }
+  .hand-art canvas#c.grabbing { cursor: url(assets/cursor-grab.png) 24 24, grabbing; }
+  #coach { margin: 6px 12px; background: #f6d55c; color: #3b2f2a; border-radius: 12px; padding: 10px 14px; font-weight: bold; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  #coach[hidden] { display: none; } #coach button { min-height: 36px; padding: 4px 10px; font-size: 14px; }
+  #hint { background: #e8f7d8; }
+  @media (max-width: 700px) { body { display: flex; flex-direction: column; } header { order: 0; padding: 4px 8px; gap: 4px; } h1 { font-size: 15px; width: 100%; } #hud { order: 1; font-size: 12px; } #coach { order: 2; } #result { order: 3; } #wrap { order: 4; padding: 0 4px; } #msg { order: 5; } #levels { order: 6; } #panels { order: 7; } h1 small { display: none; } header button { padding: 6px 10px; } #levels button { font-size: 13px; padding: 2px 8px; } .lvinfo { width: 100%; } }
+  .rule { padding: 4px; border-radius: 4px; }
+  .rule.on.boom { background: #ffc9c9; } .rule.on.bad { background: #ffe0c2; } .rule.on.good { background: #d8f5d8; }
+  #ending { font-size: 20px; }
+  #ending.chaos { color: #b00020; } #ending.smooth { color: #0a7d2c; }
+</style>
+</head>
+<body>
+<header>
+  <h1>魔女的行李箱</h1>
+  <button id="rotL" aria-label="逆時針旋轉">⟲ 45°</button>
+  <button id="rotR" aria-label="順時針旋轉">⟳ 45°</button>
+  <button id="reset">重來 reset</button>
+  <button id="hint" title="顯示一件物品的正確位置（本次最多 2 星）">💡 提示</button>
+</header>
+<div id="levels" role="toolbar" aria-label="關卡"></div>
+<div id="hud"></div>
+<div id="coach" hidden></div>
+<div id="wrap"><canvas id="c" width="1000" height="400"></canvas></div>
+<div id="msg" role="status"></div>
+<div id="result" hidden></div>
+<dialog id="book"><h2>📖 圖鑑 <span class="count"></span></h2><div class="grid"></div><form method="dialog"><button>關閉</button></form></dialog>
+<div id="panels">
+  <div class="panel"><b>規則面板</b><div id="rules"></div></div>
+  <div class="panel"><b>結局</b><div id="ending">尚未達成</div><div id="endingList"></div>
+    <small>操作：拖曳移動（拖曳中會顯示綠色／紅色影子與原因）；點選後用 ⟲／⟳、R（Shift+R 逆轉），或再點一下已選取的物品旋轉；放開時吸附並檢查。格線每格 20，欄 A–、列 1–。</small></div>
+</div>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
