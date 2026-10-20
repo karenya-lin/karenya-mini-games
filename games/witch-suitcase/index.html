@@ -35,9 +35,13 @@
   #panels { display: flex; flex-wrap: wrap; gap: 12px; padding: 0 12px 16px; }
   .panel { background: #fff8ec; border: 1px solid #ccc; border-radius: 8px; padding: 8px 12px; flex: 1 1 280px; }
   .rule.on { background: #ffe9a8; }
-  canvas#c { cursor: url(assets/cursor-open.png) 16 16, grab; }
-  canvas#c.over-item { cursor: url(assets/cursor-open.png) 16 16, grab; }
-  canvas#c.grabbing { cursor: url(assets/cursor-grab.png) 16 16, grabbing; }
+  canvas#c { cursor: grab; } canvas#c.grabbing { cursor: grabbing; }
+  .hand-art canvas#c, .hand-art canvas#c.over-item { cursor: url(assets/cursor-open.png) 16 16, grab; }
+  .hand-art canvas#c.grabbing { cursor: url(assets/cursor-grab.png) 16 16, grabbing; }
+  #coach { margin: 6px 12px; background: #f6d55c; color: #3b2f2a; border-radius: 12px; padding: 10px 14px; font-weight: bold; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  #coach button { min-height: 36px; padding: 4px 10px; font-size: 14px; }
+  #hint { background: #e8f7d8; }
+  @media (max-width: 700px) { body { display: flex; flex-direction: column; } header { order: 0; padding: 4px 8px; gap: 4px; } h1 { font-size: 15px; width: 100%; } #hud { order: 1; font-size: 12px; } #coach { order: 2; } #result { order: 3; } #wrap { order: 4; padding: 0 4px; } #msg { order: 5; } #levels { order: 6; } #panels { order: 7; } h1 small { display: none; } header button { padding: 6px 10px; } #levels button { font-size: 13px; padding: 2px 8px; } .lvinfo { width: 100%; } }
   .rule { padding: 4px; border-radius: 4px; }
   .rule.on.boom { background: #ffc9c9; } .rule.on.bad { background: #ffe0c2; } .rule.on.good { background: #d8f5d8; }
   #ending { font-size: 20px; }
@@ -50,9 +54,11 @@
   <button id="rotL" aria-label="逆時針旋轉">⟲ 45°</button>
   <button id="rotR" aria-label="順時針旋轉">⟳ 45°</button>
   <button id="reset">重來 reset</button>
+  <button id="hint" title="顯示一件物品的正確位置（本次最多 2 星）">💡 提示</button>
 </header>
 <div id="levels" role="toolbar" aria-label="關卡"></div>
 <div id="hud"></div>
+<div id="coach" hidden></div>
 <div id="wrap"><canvas id="c" width="1000" height="400"></canvas></div>
 <div id="msg" role="status"></div>
 <div id="result" hidden></div>
@@ -60,7 +66,7 @@
 <div id="panels">
   <div class="panel"><b>規則面板</b><div id="rules"></div></div>
   <div class="panel"><b>結局</b><div id="ending">尚未達成</div><div id="endingList"></div>
-    <small>操作：拖曳移動（拖曳中會顯示綠色／紅色影子與原因）；點選後用 ⟲／⟳ 或 R（Shift+R 逆轉）旋轉；放開時吸附並檢查。格線每格 20，欄 A–、列 1–。</small></div>
+    <small>操作：拖曳移動（拖曳中會顯示綠色／紅色影子與原因）；點選後用 ⟲／⟳、R（Shift+R 逆轉），或再點一下已選取的物品旋轉；放開時吸附並檢查。格線每格 20，欄 A–、列 1–。</small></div>
 </div>
 <script type="module" src="src/main.js"></script>
 </body>

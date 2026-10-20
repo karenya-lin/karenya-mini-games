@@ -34,3 +34,8 @@ test('存檔：讀寫與壞檔', () => {
   assert.equal(load(mem).unlocked, 1); save(mem, { unlocked: 3, best: { 1: 3 }, collection: ['broom'], daily: {}, score: 50 });
   assert.equal(load(mem).best[1], 3); mem.d[SAVE_KEY] = '{壞'; assert.equal(load(mem).unlocked, 1);
 });
+
+test('每日挑戰只抽已解鎖章節；用提示最多 2 星', () => {
+  for (let d = 1; d <= 28; d++) { const ds = `2026-02-${String(d).padStart(2, '0')}`; assert.equal(daily(ds, 1).chapter, 1); assert.ok(daily(ds, 3).chapter <= 3); }
+  assert.equal(stars(1, 1, 4, 1), 2); assert.equal(stars(1, 1, 4, 0), 3);
+});

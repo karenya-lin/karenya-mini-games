@@ -1,5 +1,5 @@
 import { createState, reset, tryPlace, rotate, evaluate, polyOf, preview, occupiedCells, cellLabel, colName, ENDINGS, CHAPTERS, chapter, rulesOf, CELL, SPEC_CHAPTER } from './game.js';
-import { art, ready, source, drawable } from './art.js';
+import { art, ready, source, drawable, HAS_PNG } from './art.js';
 import { stars, soClose, starRule, nextCombo, comboBonus, unlockItems, daily, today, load, save } from './meta.js';
 import { ITEMS } from './game.js';
 
@@ -9,7 +9,11 @@ const SAVE = load(localStorage);
 SAVE.unlocked = Math.max(SAVE.unlocked, +(localStorage.getItem('witch-suitcase.unlocked') || 1)); // 舊版進度
 let unlocked = Math.max(1, Math.min(CHAPTERS.length, SAVE.unlocked));
 const persist = () => { SAVE.unlocked = unlocked; save(localStorage, SAVE); };
-let run = { t0: performance.now(), combo: 0, maxCombo: 0, bonus: 0, result: null, daily: null };
+let run = { t0: performance.now(), combo: 0, maxCombo: 0, bonus: 0, result: null, daily: null, hints: 0 };
+let pop = null, hintGhost = null; // 放好時的彈跳、提示影子
+// 手機直式：桌面改到箱子下方，畫面放大很多
+const LAYOUT = () => qs.get('layout') || (innerWidth < 700 && innerHeight > innerWidth ? 'portrait' : 'landscape');
+if (HAS_PNG.has('cursor-open')) document.body.classList.add('hand-art');
 let juice = []; // 粒子
 let shake = null, floatTxt = null;
 // 音效（WebAudio 合成，不用音檔）
@@ -26,6 +30,7 @@ function place(fn) {
   if (r.ok) {
     sfx.snap(run.combo);
     const it = state.items.find((i) => i.id === state.selected) || state.items[0];
+    pop = { id: it.id, t0: performance.now() };
     if (r.inBox) for (let k = 0; k < 8 + run.combo * 4; k++) juice.push({ x: it.x, y: it.y, vx: (Math.random() - 0.5) * 260, vy: (Math.random() - 0.8) * 260, t0: performance.now(), c: ['#f6d55c', '#ff8a3d', '#fff'][k % 3] });
     if (run.combo >= 2) { run.bonus += comboBonus(run.combo); floatTxt = { text: `連擊 ×${run.combo}！+${comboBonus(run.combo)}`, x: it.x, y: it.y - it.h / 2, t0: performance.now() }; shake = { t0: performance.now(), amp: 3 + run.combo }; }
     animate();
@@ -36,7 +41,8 @@ function place(fn) {
 }
 function finish() {
   const secs = (performance.now() - run.t0) / 1000, n = state.items.length;
-  const st = stars(state.moves, secs, n), close = soClose(state.moves, secs, n);
+  const st = stars(state.moves, secs, n, run.hints), close = run.hints ? null : soClose(state.moves, secs, n);
+  if (!run.daily && state.chapter === 1) SAVE.tutorial = true;
   const key = run.daily ? `daily:${run.daily.date}` : String(state.chapter);
   const best = run.daily ? SAVE.daily[run.daily.date] || 0 : SAVE.best[key] || 0;
   const pts = st * 100 + run.bonus;
@@ -48,17 +54,17 @@ function finish() {
   animate();
 }
 let animating = false;
-function animate() { if (animating) return; animating = true; const loop = (now) => { juice = juice.filter((p) => now - p.t0 < 900); if (shake && now - shake.t0 > 300) shake = null; if (floatTxt && now - floatTxt.t0 > 1100) floatTxt = null; draw(now); if (juice.length || shake || floatTxt) requestAnimationFrame(loop); else { animating = false; draw(); } }; requestAnimationFrame(loop); }
+function animate() { if (animating) return; animating = true; const loop = (now) => { juice = juice.filter((p) => now - p.t0 < 900); if (shake && now - shake.t0 > 300) shake = null; if (pop && now - pop.t0 > 260) pop = null; if (hintGhost && now - hintGhost.t0 > 2500) hintGhost = null; if (floatTxt && now - floatTxt.t0 > 1100) floatTxt = null; draw(now); if (juice.length || shake || floatTxt || pop || hintGhost) requestAnimationFrame(loop); else { animating = false; draw(); } }; requestAnimationFrame(loop); }
 const PREVIEW = qs.has('preview');
 const startCh = PREVIEW ? SPEC_CHAPTER : Math.min(+(qs.get('chapter') || qs.get('level') || unlocked), unlocked);
-const state = evaluate(createState(startCh));
+const state = evaluate(createState(startCh, { layout: LAYOUT() }));
 const cv = document.getElementById('c');
 const ctx = cv.getContext('2d');
 let drag = null; // { id, dx, dy, x, y, pid }
 let boomFx = null; // { t0, parts }
 
 function sizeCanvas() { cv.width = state.world.w + M; cv.height = state.world.h + M; cv.style.maxWidth = `${cv.width}px`; }
-function goChapter(n, opts) { drag = null; boomFx = null; const d = opts?.daily ?? (n === state.chapter ? run.daily : null); reset(state, n, { blocks: d ? d.blocks : [] }); evaluate(state); run = { t0: performance.now(), combo: 0, maxCombo: 0, bonus: 0, result: null, daily: d }; sizeCanvas(); render(); ready(state.items.map((i) => i.id).concat('suitcase', 'bg')).then(render); }
+function goChapter(n, opts) { drag = null; boomFx = null; const d = opts?.daily ?? (n === state.chapter ? run.daily : null); reset(state, n, { blocks: d ? d.blocks : [], layout: LAYOUT() }); evaluate(state); run = { t0: performance.now(), combo: 0, maxCombo: 0, bonus: 0, result: null, daily: d, hints: 0 }; pop = null; hintGhost = null; sizeCanvas(); render(); ready(state.items.map((i) => i.id).concat('suitcase', 'bg')).then(render); }
 
 function toWorld(e) {
   const r = cv.getBoundingClientRect();
@@ -76,8 +82,9 @@ function hit(x, y) {
 cv.addEventListener('pointerdown', (e) => {
   if (state.exploded || run.result) return; // 爆炸中或已過關：等重來／下一關
   const [x, y] = toWorld(e), it = hit(x, y);
+  const wasSel = !!it && state.selected === it.id;
   state.selected = it ? it.id : null;
-  if (it) { drag = { id: it.id, dx: x - it.x, dy: y - it.y, x: it.x, y: it.y, pid: e.pointerId }; try { cv.setPointerCapture(e.pointerId); } catch {} }
+  if (it) { drag = { id: it.id, dx: x - it.x, dy: y - it.y, x: it.x, y: it.y, x0: it.x, y0: it.y, wasSel, pid: e.pointerId }; try { cv.setPointerCapture(e.pointerId); } catch {} }
   render();
 });
 // 游標：一般／滑到物品＝張開的手，拖曳中＝握拳（圖檔缺時 CSS 自動退回 grab／grabbing）
@@ -92,7 +99,9 @@ cv.addEventListener('pointermove', (e) => { if (!drag || e.pointerId !== drag.pi
 function endDrag(e, cancel) {
   if (!drag || e.pointerId !== drag.pid) return;
   const d = drag; drag = null;
-  if (!cancel) { const it = state.items.find((i) => i.id === d.id); place(() => tryPlace(state, d.id, d.x, d.y, it.angle)); } else state.message = '拖曳取消。';
+  const tap = Math.hypot(d.x - d.x0, d.y - d.y0) < 4;
+  if (!cancel && tap) { if (d.wasSel) place(() => rotate(state, d.id, 1)); } // 點一下＝選取；再點一下＝旋轉（手機好用）
+  else if (!cancel) { const it = state.items.find((i) => i.id === d.id); place(() => tryPlace(state, d.id, d.x, d.y, it.angle)); } else state.message = '拖曳取消。';
   render();
 }
 cv.addEventListener('pointerup', (e) => endDrag(e, false));
@@ -101,11 +110,22 @@ const rot = (dir) => { if (run.result || state.exploded) return; if (!state.sele
 document.getElementById('rotL').onclick = () => rot(-1);
 document.getElementById('rotR').onclick = () => rot(1);
 document.getElementById('reset').onclick = () => goChapter(state.chapter);
+/** 提示：秀出一件還沒放對的物品的標準位置（本次最多 2 星） */
+function hint() {
+  if (run.result || state.exploded) return;
+  const sol = chapter(state.chapter).configs.smooth;
+  const id = Object.keys(sol).find((k) => { const it = state.items.find((i) => i.id === k), [x, y, a] = sol[k]; return Math.abs(it.x - x) > 1 || Math.abs(it.y - y) > 1 || it.angle !== a; });
+  if (!id) return;
+  const [x, y, angle] = sol[id]; run.hints++; hintGhost = { id, x, y, angle, t0: performance.now() }; state.selected = id;
+  state.message = `💡 試試把「${state.items.find((i) => i.id === id).name}」放到發光的位置（用了提示，本次最多 2 星）`; render(); animate();
+}
+document.getElementById('hint').onclick = hint;
 addEventListener('keydown', (e) => { if (e.key === 'r' || e.key === 'R') rot(e.shiftKey ? -1 : 1); if (e.key === 'Escape' && drag) { drag = null; state.message = '拖曳取消。'; render(); } });
 
 function pathPoly(p) { ctx.beginPath(); p.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.closePath(); }
 function drawItem(it, x, y, angle, alpha = 1) {
   ctx.save(); ctx.globalAlpha = alpha; ctx.translate(x, y); ctx.rotate((angle * Math.PI) / 180);
+  if (pop && pop.id === it.id) { const k = Math.sin(Math.min(1, (performance.now() - pop.t0) / 260) * Math.PI); ctx.scale(1 + 0.12 * k, 1 - 0.08 * k); }
   ctx.shadowColor = 'rgba(40,20,10,.35)'; ctx.shadowBlur = 5; ctx.shadowOffsetY = 2;
   if (drawable(it.id)) ctx.drawImage(art(it.id), -it.w / 2, -it.h / 2, it.w, it.h);
   else { // 美術缺檔：圓角色塊＋名稱
@@ -129,7 +149,7 @@ function draw(now = performance.now()) {
   ctx.fillStyle = '#d9c8f0'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   for (let cx = 0; cx * CELL < B.w; cx++) ctx.fillText(colName(cx), cx * CELL + CELL / 2, -12);
   for (let cy = 0; cy * CELL < B.h; cy++) ctx.fillText(String(cy + 1), -13, cy * CELL + CELL / 2);
-  ctx.drawImage(art('bg'), T.x - 40, 0, T.w + 40, T.h);
+  if (state.layout === 'portrait') ctx.drawImage(art('bg'), T.x, T.y - 20, T.w, T.h + 20); else ctx.drawImage(art('bg'), T.x - 40, 0, T.w + 40, T.h);
   ctx.drawImage(art('suitcase'), B.x, B.y, B.w, B.h);
   // 格線＋佔用格
   const occ = occupiedCells(state);
@@ -140,7 +160,8 @@ function draw(now = performance.now()) {
   for (let x = 0; x <= B.w; x += CELL) { ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, B.h); }
   for (let y = 0; y <= B.h; y += CELL) { ctx.moveTo(0, y + 0.5); ctx.lineTo(B.w, y + 0.5); }
   ctx.stroke();
-  ctx.fillStyle = '#f6e6a8'; ctx.font = '13px sans-serif'; ctx.textAlign = 'left'; ctx.fillText(`桌面（暫放區）`, T.x + 6, T.h - 10);
+  ctx.fillStyle = '#f6e6a8'; ctx.font = '13px sans-serif'; ctx.textAlign = 'left'; ctx.fillText(`桌面（暫放區）`, T.x + 6, T.y + T.h - 10);
+  if (hintGhost) { const it = state.items.find((i) => i.id === hintGhost.id), k = 0.5 + 0.5 * Math.sin(performance.now() / 150); pathPoly(polyOf({ ...it, x: hintGhost.x, y: hintGhost.y, angle: hintGhost.angle })); ctx.fillStyle = `rgba(120,230,255,${0.2 + 0.25 * k})`; ctx.fill(); ctx.setLineDash([6, 4]); ctx.strokeStyle = '#5fd3f3'; ctx.lineWidth = 3; ctx.stroke(); ctx.setLineDash([]); }
   // 影子預覽
   let pv = null;
   if (drag) {
@@ -214,11 +235,20 @@ function render() {
     + (R.newItems ? `<div>📖 圖鑑新收錄 ${R.newItems} 件！</div>` : '')
     + `<button id="retry">${R.stars < 3 ? '再挑戰三星' : '再玩一次'}</button>`;
   const rt = document.getElementById('retry'); if (rt) rt.onclick = () => goChapter(state.chapter);
-  document.getElementById('dailyBtn').onclick = () => goChapter(daily(today()).chapter, { daily: daily(today()) });
+  document.getElementById('dailyBtn').onclick = () => { const d = daily(today(), unlocked); goChapter(d.chapter, { daily: d }); };
   document.getElementById('bookBtn').onclick = openBook;
   document.querySelectorAll('#levels [data-level]').forEach((b) => (b.onclick = () => goChapter(+b.dataset.level)));
   const nx = document.getElementById('next'); if (nx) nx.onclick = () => goChapter(state.chapter + 1);
   document.getElementById('msg').textContent = state.message;
+  // 新手教學（第 1 章第一次玩）
+  const coach = document.getElementById('coach'), showCoach = !SAVE.tutorial && state.chapter === 1 && !run.daily && !run.result && !PREVIEW;
+  coach.hidden = !showCoach;
+  if (showCoach) {
+    coach.innerHTML = (state.moves === 0 ? `① 把${state.layout === 'portrait' ? '下面' : '右邊'}桌上的東西拖進行李箱。拖的時候綠色＝可以放，紅色＝不行。`
+      : state.moves < 3 ? '② 小心規則：💢 高跟鞋挨著吹風機會被吹歪！點一下選取、再點一下可以旋轉。'
+      : '③ 全部放進箱子、規則都 OK 就過關。卡住可以按 💡 提示。') + '<button id="coachSkip">知道了</button>';
+    document.getElementById('coachSkip').onclick = () => { SAVE.tutorial = true; persist(); render(); };
+  }
   const kindTxt = { good: '必要', bad: '不可以', boom: '會爆炸' };
   document.getElementById('rules').innerHTML = rulesOf(state).map((r, i) =>
     `<div class="rule ${state.rules[r.id] ? 'on' : ''} ${r.kind}" data-rule="${r.id}">${state.rules[r.id] ? '● 成立' : '○ 未成立'}｜${BADGE[r.kind]}<b>${'①②③④'[i]} ${r.name}</b>（${kindTxt[r.kind]}）：${r.desc}</div>`).join('');
@@ -233,7 +263,7 @@ window.__game = {
   artSource: source, state, render, toScreen, goChapter, goLevel: goChapter,
   tryPlace: (...a) => { const r = tryPlace(state, ...a); render(); return r; }, rotate: (...a) => { const r = rotate(state, ...a); render(); return r; },
   reset: () => document.getElementById('reset').click(), get dragging() { return drag; }, get unlocked() { return unlocked; }, get exploding() { return !!boomFx; },
-  unlockAll: () => { unlocked = CHAPTERS.length; persist(); render(); }, get run() { return run; }, save: SAVE, daily: () => daily(today()),
+  unlockAll: () => { unlocked = CHAPTERS.length; persist(); render(); }, get run() { return run; }, save: SAVE, daily: () => daily(today(), unlocked), hint, get hintGhost() { return hintGhost; },
 };
 sizeCanvas();
 ready(state.items.map((i) => i.id).concat('suitcase', 'bg')).then(render);

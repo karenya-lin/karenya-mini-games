@@ -97,3 +97,13 @@ test('三輪 reset：結局後、爆炸後、操作中都完全還原', () => {
   }
 });
 test('可換章', () => { const s = createState(1); reset(s, 5); assert.equal(s.chapter, 5); assert.equal(s.items.length, 8); });
+
+test('手機直式：桌面在箱子下方，初始物品都在桌上、互不重疊，標準解仍可過關', () => {
+  for (const c of CHAPTERS) {
+    const s = createState(c.n, { layout: 'portrait' });
+    assert.equal(s.table.y, s.box.h + 40); assert.equal(s.world.w, s.box.w);
+    for (const it of s.items) assert.equal(validate(s, it), null, `${c.n} ${it.id}`);
+    for (const [id, [x, y, a]] of Object.entries(c.configs.smooth)) assert.ok(tryPlace(s, id, x, y, a).ok, `${c.n} ${id}`);
+    assert.equal(s.ending, 'smooth', `ch${c.n}`);
+  }
+});

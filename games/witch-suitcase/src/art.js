@@ -1,5 +1,7 @@
 // 美術載入：優先讀 assets/<key>.png（正式點陣美術），檔案不存在時退回下方的 SVG 暫用圖。
 // 每件物品的圖會被拉伸到碰撞矩形大小繪製，因此畫面＝碰撞形狀。
+import { AVAILABLE } from '../assets/manifest.js';
+export const HAS_PNG = new Set(AVAILABLE);
 const svg = (w, h, body) => `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${body}</svg>`;
 const eyes = (x1, x2, y, r = 3, c = '#2b1d16') => `<circle cx="${x1}" cy="${y}" r="${r}" fill="${c}"/><circle cx="${x2}" cy="${y}" r="${r}" fill="${c}"/><circle cx="${x1 + 1}" cy="${y - 1}" r="${r / 3}" fill="#fff"/><circle cx="${x2 + 1}" cy="${y - 1}" r="${r / 3}" fill="#fff"/>`;
 
@@ -83,7 +85,9 @@ export function art(key) {
     const i = new Image();
     i.onerror = () => { if (!FALLBACK[key]) { source[key] = 'none'; return; } if (source[key] !== 'fallback') { source[key] = 'fallback'; i.src = toData(FALLBACK[key]); } };
     i.onload = () => { if (!source[key]) source[key] = 'png'; };
-    i.src = `${ASSET_DIR}${key}.png`;
+    if (HAS_PNG.has(key)) i.src = `${ASSET_DIR}${key}.png`;
+    else if (FALLBACK[key]) { source[key] = 'fallback'; i.src = toData(FALLBACK[key]); }
+    else source[key] = 'none';
     cache.set(key, i);
   }
   return cache.get(key);

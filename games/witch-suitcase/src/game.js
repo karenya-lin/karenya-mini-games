@@ -83,22 +83,26 @@ export const ENDINGS = {
 
 /** 桌面暫放區：依序排架（shelf packing），保證初始互不重疊 */
 function homes(ids, table) {
-  const out = {}; let x = table.x + 10, y = 10, rowH = 0;
+  const out = {}; let x = table.x + 10, y = table.y + 10, rowH = 0;
   for (const id of ids) {
     const it = byId[id];
     if (x + it.w > table.x + table.w - 5) { x = table.x + 10; y += rowH + 10; rowH = 0; }
     out[id] = [x + it.w / 2, y + it.h / 2]; x += it.w + 10; rowH = Math.max(rowH, it.h);
   }
+  out.bottom = y + rowH + 10;
   return out;
 }
 
-export function createState(n = SPEC_CHAPTER, { blocks = [] } = {}) {
+/** layout：'landscape'＝桌面在箱子右邊（預設）；'portrait'＝手機直式，桌面在箱子下方 */
+export function createState(n = SPEC_CHAPTER, { blocks = [], layout = 'landscape' } = {}) {
   const ch = chapter(n);
   const box = { x: 0, y: 0, ...ch.box };
-  const table = { x: box.w + GAP_W, y: 0, w: TABLE_W, h: WORLD_H };
-  const home = homes([...ch.items].sort((a, b) => byId[b].h - byId[a].h), table);
+  const sorted = [...ch.items].sort((a, b) => byId[b].h - byId[a].h);
+  let table = { x: box.w + GAP_W, y: 0, w: TABLE_W, h: WORLD_H };
+  if (layout === 'portrait') { table = { x: 0, y: box.h + GAP_W, w: box.w, h: 0 }; table.h = homes(sorted, table).bottom - table.y; }
+  const home = homes(sorted, table);
   return {
-    chapter: ch.n, box, table, world: { w: table.x + table.w, h: WORLD_H },
+    chapter: ch.n, box, table, layout, world: layout === 'portrait' ? { w: box.w, h: table.y + table.h } : { w: table.x + table.w, h: WORLD_H },
     items: ch.items.map((id) => ({ ...byId[id], x: home[id][0], y: home[id][1], angle: 0 })),
     message: `第 ${ch.n} 章：幫${ch.client}打包（${ch.items.length} 件）。`,
     rules: Object.fromEntries(ch.rules.map((r) => [r, false])),
@@ -107,7 +111,7 @@ export function createState(n = SPEC_CHAPTER, { blocks = [] } = {}) {
     moves: 0,
   };
 }
-export function reset(state, n = state.chapter, opts = { blocks: n === state.chapter ? state.blocks : [] }) { Object.keys(state).forEach((k) => delete state[k]); return Object.assign(state, createState(n, opts)); }
+export function reset(state, n = state.chapter, opts = { blocks: n === state.chapter ? state.blocks : [], layout: state.layout }) { Object.keys(state).forEach((k) => delete state[k]); return Object.assign(state, createState(n, opts)); }
 export const rulesOf = (state) => chapter(state.chapter).rules.map((id) => RULES_DB[id]);
 
 export const polyOf = (it) => corners(it);
@@ -128,7 +132,7 @@ export function validate(state, it) {
 export function snap(state, it) {
   const box = state.box;
   it.x = Math.round(it.x / GRID) * GRID; it.y = Math.round(it.y / GRID) * GRID;
-  if (!(it.x > box.x - WALL_SNAP && it.x < box.x + box.w + WALL_SNAP)) return it;
+  if (!(it.x > box.x - WALL_SNAP && it.x < box.x + box.w + WALL_SNAP && it.y < box.y + box.h + WALL_SNAP)) return it;
   const b = aabb(polyOf(it));
   const dl = b.minX - box.x, dr = box.x + box.w - b.maxX, dt = b.minY - box.y, db = box.y + box.h - b.maxY;
   if (Math.abs(dl) <= WALL_SNAP && dl !== 0) it.x -= dl; else if (Math.abs(dr) <= WALL_SNAP && dr !== 0) it.x += dr;
